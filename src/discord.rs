@@ -46,8 +46,8 @@ impl Discord {
         let details;
         let state;
         let media;
-        let link_imdb;
-        let link_trakt;
+        let id_imdb;
+        let id_trakt;
         let start_date = DateTime::parse_from_rfc3339(&trakt_response.started_at).unwrap();
         let end_date = DateTime::parse_from_rfc3339(&trakt_response.expires_at).unwrap();
         let now = Utc::now();
@@ -62,19 +62,10 @@ impl Discord {
                 state = format!(
                     "{:.1} ⭐️",
                     Trakt::get_movie_rating(trakt, movie.ids.slug.as_ref().unwrap().to_string())
-                        .as_ref()
-                        .unwrap()
                 );
                 media = "movies";
-                link_imdb = format!(
-                    "https://www.imdb.com/title/{}",
-                    movie.ids.imdb.as_ref().unwrap()
-                );
-                link_trakt = format!(
-                    "https://trakt.tv/{}/{}",
-                    media,
-                    movie.ids.slug.as_ref().unwrap()
-                );
+                id_imdb = movie.ids.imdb.as_ref().unwrap();
+                id_trakt = movie.ids.slug.as_ref().unwrap();
             }
             "episode" if trakt_response.episode.is_some() => {
                 let episode = trakt_response.episode.as_ref().unwrap();
@@ -82,15 +73,8 @@ impl Discord {
                 details = show.title.to_string();
                 state = format!("S{}E{} - {}", episode.season, episode.number, episode.title);
                 media = "shows";
-                link_imdb = format!(
-                    "https://www.imdb.com/title/{}",
-                    show.ids.imdb.as_ref().unwrap()
-                );
-                link_trakt = format!(
-                    "https://trakt.tv/{}/{}",
-                    media,
-                    show.ids.slug.as_ref().unwrap()
-                );
+                id_imdb = show.ids.imdb.as_ref().unwrap();
+                id_trakt = show.ids.slug.as_ref().unwrap();
             }
             _ => {
                 log(&format!("Unknown media type: {}", trakt_response.r#type));
@@ -98,14 +82,24 @@ impl Discord {
             }
         }
 
-        log(&format!("{details} - {state} | {watch_percentage}"));
+        let link_imdb = format!("https://www.imdb.com/title/{id_imdb}");
+        let link_trakt = format!("https://trakt.tv/{media}/{id_trakt}");
+        let img_imdb = match trakt.get_show_image(id_imdb.to_string()) {
+            Some(img) => {
+                println!("{img}");
+                img
+            }
+            None => media.to_string(),
+        };
+
+        print!("{}", img_imdb);
 
         let payload = Activity::new()
             .details(&details)
             .state(&state)
             .assets(
                 Assets::new()
-                    .large_image(media)
+                    .large_image(&img_imdb)
                     .large_text(&watch_percentage)
                     .small_image("trakt")
                     .small_text("Discrakt"),
@@ -119,6 +113,8 @@ impl Discord {
                 Button::new("IMDB", &link_imdb),
                 Button::new("Trakt", &link_trakt),
             ]);
+
+        log(&format!("{details} - {state} | {watch_percentage}"));
 
         if self.client.set_activity(payload).is_err() {
             self.connect();
