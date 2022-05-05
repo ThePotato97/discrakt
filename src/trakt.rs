@@ -127,7 +127,7 @@ impl Trakt {
                     }
                     Err(_) => {
                         log("Show image not correctly found");
-                        return None;
+                        None
                     }
                 }
             }
