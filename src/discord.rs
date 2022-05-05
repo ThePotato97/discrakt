@@ -85,14 +85,11 @@ impl Discord {
         let link_imdb = format!("https://www.imdb.com/title/{id_imdb}");
         let link_trakt = format!("https://trakt.tv/{media}/{id_trakt}");
         let img_imdb = match trakt.get_show_image(id_imdb.to_string()) {
-            Some(img) => {
-                println!("{img}");
-                img
-            }
+            Some(img) => img,
             None => media.to_string(),
         };
 
-        print!("{}", img_imdb);
+        println!("{}", img_imdb);
 
         let payload = Activity::new()
             .details(&details)
