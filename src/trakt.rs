@@ -1,6 +1,8 @@
+use regex::Regex;
 use serde::Deserialize;
 use std::{collections::HashMap, time::Duration};
 use ureq::{serde_json, Agent, AgentBuilder};
+use url::{Host, Url};
 
 use crate::utils::log;
 
@@ -113,14 +115,53 @@ impl Trakt {
 
                 match response.into_json::<serde_json::Value>() {
                     Ok(body) => {
+                        let unredirected_image_url =
+                            "https://imdb-api.com/posters/s470/ckLLIsNy3Z0Go1PYHA2PHzVymUA.jpg";
+
+                        println!("HARDCODED: {}", unredirected_image_url);
+
+                        match self.agent.get(&unredirected_image_url.clone()).call() {
+                            Ok(response) => {
+                                println!("{:?}", response);
+                            }
+                            Err(response) => {
+                                println!("{:?}", response);
+                                log("Failed to get image from imdb-api");
+                            }
+                        };
+
                         let image_url = body["posters"][0]["link"]
                             .to_string()
-                            .replace("original", "s470");
+                            .replace("original", "s470")
+                            .to_owned();
 
-                        if image_url == "null" {
-                            log("Failed to extract image from imdb-api");
-                            return None;
-                        }
+                        println!("FROM REQ: {}", image_url);
+
+                        // let parsed_url = Url::parse(&unredirected_image_url).unwrap();
+
+                        let base = Url::parse("https://imdb-api.com/posters/s470/").unwrap();
+                        let re = Regex::new(r"/([^/]+)/?$").unwrap();
+                        let mut relative_url = re.captures(&image_url).unwrap()[1].to_string();
+
+                        println!("{:?}", relative_url);
+                        relative_url.pop();
+                        println!("{:?}", relative_url);
+
+                        let image_url = base.join(&relative_url).unwrap();
+
+                        println!("CLEAN: {:?}", image_url);
+
+                        let image_url = match self.agent.request_url("get", &image_url).call() {
+                            Ok(response) => {
+                                println!("{:?}", response);
+                                response.get_url().to_string()
+                            }
+                            Err(response) => {
+                                println!("{:?}", response);
+                                log("Failed to get image from imdb-api");
+                                return None;
+                            }
+                        };
 
                         self.image_cache.insert(imdb_id, image_url.to_string());
                         Some(image_url)
@@ -138,7 +179,7 @@ impl Trakt {
         match self.rating_cache.get(&movie_slug) {
             Some(rating) => *rating,
             None => {
-                let endpoint = format!("https://api.trakt.tv/movies/{}/ratings", movie_slug);
+                let endpoint = format!("https://api.trakt.tv/movies/{movie_slug}/ratings");
 
                 let response = match self
                     .agent
