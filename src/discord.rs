@@ -48,6 +48,9 @@ impl Discord {
         let media;
         let id_imdb;
         let id_trakt;
+        let id_tmdb;
+        let mut season_number = &0;
+        let mut episode_number = &0;
         let start_date = DateTime::parse_from_rfc3339(&trakt_response.started_at).unwrap();
         let end_date = DateTime::parse_from_rfc3339(&trakt_response.expires_at).unwrap();
         let now = Utc::now();
@@ -65,14 +68,18 @@ impl Discord {
                 );
                 media = "movies";
                 id_imdb = movie.ids.imdb.as_ref().unwrap();
+                id_tmdb = movie.ids.tmdb.as_ref().unwrap();
                 id_trakt = movie.ids.slug.as_ref().unwrap();
             }
             "episode" if trakt_response.episode.is_some() => {
                 let episode = trakt_response.episode.as_ref().unwrap();
                 let show = trakt_response.show.as_ref().unwrap();
                 details = show.title.to_string();
-                state = format!("S{}E{} - {}", episode.season, episode.number, episode.title);
+                season_number = episode.season.as_ref().unwrap();
+                episode_number = episode.number.as_ref().unwrap();
+                state = format!("S{}E{} - {}", season_number, episode_number, episode.title);
                 media = "shows";
+                id_tmdb = show.ids.tmdb.as_ref().unwrap();
                 id_imdb = show.ids.imdb.as_ref().unwrap();
                 id_trakt = show.ids.slug.as_ref().unwrap();
             }
@@ -83,20 +90,26 @@ impl Discord {
         }
 
         let link_imdb = format!("https://www.imdb.com/title/{id_imdb}");
-        let link_trakt = format!("https://trakt.tv/{media}/{id_trakt}");
-        let img_imdb = match trakt.get_show_image(id_imdb.to_string()) {
+        let link_trakt = if media == "shows" {
+            format!("https://trakt.tv/{media}/{id_trakt}/seasons/{season_number}/episodes/{episode_number}")
+        } else {
+            format!("https://trakt.tv/{media}/{id_trakt}")
+        };
+        log(&format!("Current trakt link: {:?}", &link_trakt));
+
+        let img_tmdb = match trakt.get_show_image_tmdb(*id_tmdb, media, Some(*season_number)) {
             Some(img) => img,
             None => media.to_string(),
         };
 
-        println!("{}", img_imdb);
+        println!("Current tmdb poster {}", img_tmdb);
 
         let payload = Activity::new()
             .details(&details)
             .state(&state)
             .assets(
                 Assets::new()
-                    .large_image(&img_imdb)
+                    .large_image(&img_tmdb)
                     .large_text(&watch_percentage)
                     .small_image("trakt")
                     .small_text("Discrakt"),
