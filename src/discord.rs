@@ -77,7 +77,7 @@ impl Discord {
                 details = show.title.to_string();
                 season_number = episode.season.as_ref().unwrap();
                 episode_number = episode.number.as_ref().unwrap();
-                state = format!("S{}E{} - {}", season_number, episode_number, episode.title);
+                state = format!("S{:<02}E{} - {}", season_number, episode_number, episode.title);
                 media = "shows";
                 id_tmdb = show.ids.tmdb.as_ref().unwrap();
                 id_imdb = show.ids.imdb.as_ref().unwrap();
