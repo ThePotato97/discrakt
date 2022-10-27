@@ -26,8 +26,7 @@ pub fn load_config() -> Env {
 
 pub fn log(message: &str) {
     println!(
-        "{} : {}",
+        "{} : {message}",
         Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true),
-        message
     );
 }
